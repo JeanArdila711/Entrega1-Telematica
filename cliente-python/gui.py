@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
-from client import GCPClient
+from client import GCPClient, SERVER_PORT
 
 CELL_SIZE = 30
 MAP_SIZE = 20
