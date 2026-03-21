@@ -71,8 +71,26 @@ void handle_client_message(Player* player, Room** room, const char* message,
         char role_str[16];
         strcpy(role_str, player->role == ATTACKER ? "ATTACKER" : "DEFENDER");
 
-        snprintf(response, BUFFER_SIZE, "200 OK JOINED ROOM:%d ROLE:%s POS:%d,%d\n",
-                 (*room)->id, role_str, player->x, player->y);
+        // Si es defensor, incluir posiciones de recursos en la respuesta
+        if (player->role == DEFENDER) {
+            // Construir string de recursos: RESOURCES:x1,y1;x2,y2;...
+            char resources_str[256] = {0};
+            char temp[32];
+            for (int i = 0; i < MAX_RESOURCES; i++) {
+                if (i > 0) strncat(resources_str, ";", sizeof(resources_str) - strlen(resources_str) - 1);
+                snprintf(temp, sizeof(temp), "%d,%d",
+                         (*room)->resources[i].x,
+                         (*room)->resources[i].y);
+                strncat(resources_str, temp, sizeof(resources_str) - strlen(resources_str) - 1);
+            }
+            snprintf(response, BUFFER_SIZE,
+                     "200 OK JOINED ROOM:%d ROLE:%s POS:%d,%d RESOURCES:%s\n",
+                     (*room)->id, role_str, player->x, player->y, resources_str);
+        } else {
+            snprintf(response, BUFFER_SIZE,
+                     "200 OK JOINED ROOM:%d ROLE:%s POS:%d,%d\n",
+                     (*room)->id, role_str, player->x, player->y);
+        }
 
         // Notificar a los demás
         char notify[BUFFER_SIZE];
@@ -227,7 +245,6 @@ void* handle_client(void* arg) {
 // ── Main ─────────────────────────────────────────────
 int main(int argc, char* argv[]) {
 
-    // Recibir puerto y archivo de logs por consola
     if (argc != 3) {
         printf("Uso: ./server <puerto> <archivo_logs>\n");
         printf("Ejemplo: ./server 8080 logs/server.log\n");
@@ -237,17 +254,14 @@ int main(int argc, char* argv[]) {
     int port = atoi(argv[1]);
     char* log_path = argv[2];
 
-    // Abrir archivo de logs
     log_file = fopen(log_path, "a");
     if (!log_file) {
         perror("Error abriendo archivo de logs");
         exit(1);
     }
 
-    // Inicializar juego
     init_game(&game);
 
-    // Crear socket
     int server_fd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
@@ -258,7 +272,6 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-    // Permitir reusar el puerto inmediatamente
     int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
@@ -279,7 +292,6 @@ int main(int argc, char* argv[]) {
     printf("Servidor GCP corriendo en el puerto %d...\n", port);
     printf("Logs guardandose en: %s\n", log_path);
 
-    // Loop principal: aceptar clientes infinitamente
     while (1) {
         ClientArgs* args = malloc(sizeof(ClientArgs));
         args->socket_fd = accept(server_fd, (struct sockaddr*)&args->address, (socklen_t*)&addrlen);
@@ -290,10 +302,9 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        // Crear un hilo nuevo por cada cliente
         pthread_t thread;
         pthread_create(&thread, NULL, handle_client, args);
-        pthread_detach(thread);  // El hilo se limpia solo cuando termina
+        pthread_detach(thread);
     }
 
     fclose(log_file);
