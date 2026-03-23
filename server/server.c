@@ -115,6 +115,14 @@ void handle_client_message(Player* player, Room** room, const char* message,
         process_move(player, *room, param1, response);
         pthread_mutex_unlock(&game_mutex);
 
+        // Notificar posicion nueva a los demas jugadores
+        if (strncmp(response, "200", 3) == 0) {
+            char notify[BUFFER_SIZE];
+            snprintf(notify, BUFFER_SIZE, "NOTIFY PLAYER_MOVED USERNAME:%s POS:%d,%d\n",
+                player->username, player->x, player->y);
+            notify_room(*room, player, notify);
+        }
+
     // SCAN
     } else if (strcmp(cmd, "SCAN") == 0) {
         if (*room == NULL) {
