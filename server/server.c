@@ -39,38 +39,43 @@ void handle_client_message(Player* player, Room** room, const char* message,
 
     sscanf(message, "%s %s %s", cmd, param1, param2);
 
-    // JOIN <username> <rol>
-    // Ejemplo: JOIN Atacante ATTACKER
+    // JOIN <sala_id> <username>
     if (strcmp(cmd, "JOIN") == 0) {
-        strncpy(player->username, param1, MAX_USERNAME - 1);
+        int sala_id = atoi(param1);
+        strncpy(player->username, param2, MAX_USERNAME - 1);
         player->active = 1;
-
-        // Asignar rol según lo que pidió el cliente
-        if (strcmp(param2, "DEFENDER") == 0) {
-            player->role = DEFENDER;
-        } else {
-            player->role = ATTACKER;
-        }
 
         pthread_mutex_lock(&game_mutex);
 
-        // Buscar una sala en espera, si no hay ninguna crear una nueva
-        Room* available_room = NULL;
-        for (int i = 0; i < game.room_count; i++) {
-            if (game.rooms[i].state == WAITING) {
-                available_room = &game.rooms[i];
-                break;
+        if (sala_id == 0) {
+            // Buscar sala en espera antes de crear una nueva
+            *room = NULL;
+            for (int i = 0; i < game.room_count; i++) {
+                if (game.rooms[i].state == WAITING) {
+                    *room = &game.rooms[i];
+                    break;
+                }
             }
-        }
-        if (available_room == NULL) {
-            available_room = create_room(&game);
-            if (available_room == NULL) {
-                snprintf(response, BUFFER_SIZE, "500 SERVER_ERROR NO_ROOMS_AVAILABLE\n");
+            // Solo crear sala nueva si no hay ninguna esperando
+            if (*room == NULL) {
+                *room = create_room(&game);
+                if (*room == NULL) {
+                    snprintf(response, BUFFER_SIZE, "500 SERVER_ERROR NO_ROOMS_AVAILABLE\n");
+                    pthread_mutex_unlock(&game_mutex);
+                    return;
+                }
+            }
+        } else {
+            *room = find_room(&game, sala_id);
+            if (*room == NULL) {
+                snprintf(response, BUFFER_SIZE, "404 NOT_FOUND ROOM_NOT_FOUND\n");
                 pthread_mutex_unlock(&game_mutex);
                 return;
             }
         }
-        *room = available_room;
+
+        // Rol hardcodeado por ahora (después viene de LDAP)
+        player->role = ((*room)->player_count % 2 == 0) ? ATTACKER : DEFENDER;
 
         add_player_to_room(*room, player);
 
@@ -79,6 +84,7 @@ void handle_client_message(Player* player, Room** room, const char* message,
 
         // Si es defensor, incluir posiciones de recursos en la respuesta
         if (player->role == DEFENDER) {
+            // Construir string de recursos: RESOURCES:x1,y1;x2,y2;...
             char resources_str[256] = {0};
             char temp[32];
             for (int i = 0; i < MAX_RESOURCES; i++) {
@@ -97,7 +103,7 @@ void handle_client_message(Player* player, Room** room, const char* message,
                      (*room)->id, role_str, player->x, player->y);
         }
 
-        // Notificar a los demás jugadores de la sala
+        // Notificar a los demás
         char notify[BUFFER_SIZE];
         snprintf(notify, BUFFER_SIZE, "NOTIFY PLAYER_JOINED USERNAME:%s ROLE:%s\n",
                  player->username, role_str);
@@ -114,14 +120,6 @@ void handle_client_message(Player* player, Room** room, const char* message,
         pthread_mutex_lock(&game_mutex);
         process_move(player, *room, param1, response);
         pthread_mutex_unlock(&game_mutex);
-
-        // Notificar posicion nueva a los demas jugadores
-        if (strncmp(response, "200", 3) == 0) {
-            char notify[BUFFER_SIZE];
-            snprintf(notify, BUFFER_SIZE, "NOTIFY PLAYER_MOVED USERNAME:%s POS:%d,%d\n",
-                player->username, player->x, player->y);
-            notify_room(*room, player, notify);
-        }
 
     // SCAN
     } else if (strcmp(cmd, "SCAN") == 0) {
