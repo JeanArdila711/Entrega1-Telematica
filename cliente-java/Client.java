@@ -361,6 +361,16 @@ public class Client extends JFrame {
             return;
         }
 
+        // Respuesta al QUIT
+        if (mensaje.startsWith("200") && mensaje.contains("GOODBYE")) {
+            habilitarBotones(false);
+            labelStatus.setText("Desconectado");
+            labelStatus.setForeground(Color.RED);
+            try { if (socket != null) socket.close(); } catch (IOException ex) {}
+            output = null;
+            return;
+        }
+
         // Notificacion del servidor: ataque, defensa o fin de juego
         if (mensaje.startsWith("NOTIFY")) {
             if (mensaje.contains("ATTACK_STARTED")) {
