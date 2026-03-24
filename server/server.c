@@ -7,6 +7,9 @@
 #include <time.h>
 #include "game.h"
 
+// Declarado en http_server.c
+void start_http_server(void);
+
 // ── Variables globales ───────────────────────────────
 GameData game;
 pthread_mutex_t game_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -272,6 +275,7 @@ int main(int argc, char* argv[]) {
     }
 
     init_game(&game);
+    start_http_server();
 
     int server_fd;
     struct sockaddr_in address;

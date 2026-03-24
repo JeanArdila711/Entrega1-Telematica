@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -pthread
 TARGET = server
-SRCS = server.c game.c
+SRCS = server.c game.c http_server.c
 OBJS = $(SRCS:.c=.o)
 
 all: $(TARGET)
