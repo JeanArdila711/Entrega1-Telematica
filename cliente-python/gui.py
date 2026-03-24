@@ -10,7 +10,7 @@ class GameGUI:
     def __init__(self, root):
         self.root = root
         self.root.title(WINDOW_TITLE)
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
 
         self.client = GCPClient(on_message_callback=self.handle_server_message)
         self.resource_positions = []  # Posiciones conocidas de recursos (defensores)
@@ -31,7 +31,7 @@ class GameGUI:
         canvas_size = CELL_SIZE * MAP_SIZE
         self.canvas = tk.Canvas(self.root, width=canvas_size, height=canvas_size,
                                 bg='#2d2d2d', highlightthickness=0)
-        self.canvas.pack(padx=10, pady=5)
+        self.canvas.pack(padx=10, pady=5, fill=tk.BOTH, expand=True)
         self._draw_grid()
 
         # ── Log de mensajes ───────────────────────────
@@ -40,41 +40,46 @@ class GameGUI:
 
         self.log_box = tk.Text(log_frame, height=6, bg='#0d0d0d', fg='#00ff00',
                                font=('Courier', 9), state=tk.DISABLED)
-        self.log_box.pack(fill=tk.X)
+        self.log_box.pack(fill=tk.BOTH, expand=True)
 
         # ── Botones de acción ─────────────────────────
         btn_frame = tk.Frame(self.root, bg='#1e1e1e', pady=5)
-        btn_frame.pack()
+        btn_frame.pack(fill=tk.X, padx=10, pady=5)
+        btn_frame.columnconfigure(0, weight=1)
+        btn_frame.columnconfigure(1, weight=1)
 
         # Botones de movimiento
         move_frame = tk.Frame(btn_frame, bg='#1e1e1e')
-        move_frame.grid(row=0, column=0, padx=20)
+        move_frame.grid(row=0, column=0, sticky='nsew', padx=20)
+        move_frame.columnconfigure(0, weight=1)
+        move_frame.columnconfigure(1, weight=1)
+        move_frame.columnconfigure(2, weight=1)
 
         tk.Button(move_frame, text='↑', width=4, command=lambda: self.client.move('UP'),
-                  bg='#444', fg='white').grid(row=0, column=1)
+                  bg='#444', fg='white').grid(row=0, column=1, pady=2)
         tk.Button(move_frame, text='←', width=4, command=lambda: self.client.move('LEFT'),
-                  bg='#444', fg='white').grid(row=1, column=0)
+                  bg='#444', fg='white').grid(row=1, column=0, pady=2)
         tk.Button(move_frame, text='↓', width=4, command=lambda: self.client.move('DOWN'),
-                  bg='#444', fg='white').grid(row=1, column=1)
+                  bg='#444', fg='white').grid(row=1, column=1, pady=2)
         tk.Button(move_frame, text='→', width=4, command=lambda: self.client.move('RIGHT'),
-                  bg='#444', fg='white').grid(row=1, column=2)
+                  bg='#444', fg='white').grid(row=1, column=2, pady=2)
 
         # Botones de acción
         action_frame = tk.Frame(btn_frame, bg='#1e1e1e')
-        action_frame.grid(row=0, column=1, padx=20)
+        action_frame.grid(row=0, column=1, sticky='nsew', padx=20)
 
         tk.Button(action_frame, text='SCAN', width=10,
                   command=self.client.scan,
-                  bg='#2255aa', fg='white').pack(pady=2)
+                  bg='#2255aa', fg='white').pack(pady=2, fill=tk.X)
         tk.Button(action_frame, text='ATTACK', width=10,
                   command=self._do_attack,
-                  bg='#aa2222', fg='white').pack(pady=2)
+                  bg='#aa2222', fg='white').pack(pady=2, fill=tk.X)
         tk.Button(action_frame, text='DEFEND', width=10,
                   command=self._do_defend,
-                  bg='#22aa22', fg='white').pack(pady=2)
+                  bg='#22aa22', fg='white').pack(pady=2, fill=tk.X)
         tk.Button(action_frame, text='STATUS', width=10,
                   command=self.client.status,
-                  bg='#555', fg='white').pack(pady=2)
+                  bg='#555', fg='white').pack(pady=2, fill=tk.X)
 
         # Teclas del teclado para moverse
         self.root.bind('<Up>',    lambda e: self.client.move('UP'))

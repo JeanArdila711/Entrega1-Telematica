@@ -54,20 +54,23 @@ public class Client extends JFrame {
         String host = args[0];
         int puerto = Integer.parseInt(args[1]);
 
-        // Pedir nombre y rol al usuario
+        // Pedir nombre y sala al usuario
         String nombre = JOptionPane.showInputDialog("Ingresa tu nombre de jugador:");
         if (nombre == null || nombre.trim().isEmpty()) return;
 
-        String[] opciones = {"ATTACKER", "DEFENDER"};
-        String rol = (String) JOptionPane.showInputDialog(null,
-            "Selecciona tu rol:", "Rol",
-            JOptionPane.QUESTION_MESSAGE, null, opciones, opciones[0]);
-        if (rol == null) return;
+        String salaStr = JOptionPane.showInputDialog("ID de sala (0 para unirse/crear automáticamente):", "0");
+        if (salaStr == null) return;
+        int salaId;
+        try {
+            salaId = Integer.parseInt(salaStr.trim());
+        } catch (NumberFormatException ex) {
+            salaId = 0;
+        }
 
         // Crear y mostrar la ventana
         Client cliente = new Client();
         cliente.setVisible(true);
-        cliente.conectar(host, puerto, nombre, rol);
+        cliente.conectar(host, puerto, nombre, salaId);
     }
 
     public Client() {
@@ -156,8 +159,8 @@ public class Client extends JFrame {
         btnQuit   = new JButton("QUIT");
 
         btnScan.addActionListener(e   -> enviarComando("SCAN"));
-        btnAttack.addActionListener(e -> enviarComando("ATTACK"));
-        btnDefend.addActionListener(e -> enviarComando("DEFEND"));
+        btnAttack.addActionListener(e -> pedirYEnviarRecurso("ATTACK"));
+        btnDefend.addActionListener(e -> pedirYEnviarRecurso("DEFEND"));
         btnStatus.addActionListener(e -> enviarComando("STATUS"));
         btnQuit.addActionListener(e   -> enviarComando("QUIT"));
 
@@ -242,7 +245,7 @@ public class Client extends JFrame {
     }
 
     // Conecta al servidor resolviendo el hostname (sin IPs hardcodeadas)
-    void conectar(String host, int puerto, String nombre, String rol) {
+    void conectar(String host, int puerto, String nombre, int salaId) {
         agregarLog("Resolviendo hostname: " + host);
 
         // Resolucion DNS - si falla, se avisa pero el programa no se cierra
@@ -274,8 +277,8 @@ public class Client extends JFrame {
                     habilitarBotones(true);
                 });
 
-                // Enviar JOIN con nombre y rol
-                String msgJoin = "JOIN " + nombre + " " + rol;
+                // Enviar JOIN con sala_id y nombre (el servidor asigna el rol)
+                String msgJoin = "JOIN " + salaId + " " + nombre;
                 output.println(msgJoin);
                 SwingUtilities.invokeLater(() -> agregarLog("-> " + msgJoin));
 
@@ -315,17 +318,18 @@ public class Client extends JFrame {
         agregarLog("<- " + mensaje);
 
         // Respuesta al JOIN: servidor confirma rol y posicion inicial
-        // Ejemplo: "200 OK ROLE:ATTACKER X:5 Y:8"
-        // Defensor: "200 OK ROLE:DEFENDER X:3 Y:12 RESOURCES:5,7;14,2"
-        if (mensaje.startsWith("200") && mensaje.contains("ROLE:")) {
+        // Ejemplo: "200 OK JOINED ROOM:1 ROLE:ATTACKER POS:0,0"
+        // Defensor: "200 OK JOINED ROOM:1 ROLE:DEFENDER POS:3,12 RESOURCES:5,7;14,2"
+        if (mensaje.startsWith("200") && mensaje.contains("JOINED")) {
             if (mensaje.contains("ROLE:ATTACKER")) {
                 playerRole = "ATTACKER";
             } else {
                 playerRole = "DEFENDER";
             }
 
-            playerX = extraerEntero(mensaje, "X:");
-            playerY = extraerEntero(mensaje, "Y:");
+            int[] pos = extraerPos(mensaje);
+            playerX = pos[0];
+            playerY = pos[1];
 
             // Si somos defensor, el servidor nos manda donde estan los recursos
             if (mensaje.contains("RESOURCES:")) {
@@ -339,10 +343,11 @@ public class Client extends JFrame {
         }
 
         // Respuesta al MOVE: servidor confirma la nueva posicion
-        // Ejemplo: "200 OK X:6 Y:8"
-        if (mensaje.startsWith("200") && mensaje.contains("X:") && mensaje.contains("Y:")) {
-            playerX = extraerEntero(mensaje, "X:");
-            playerY = extraerEntero(mensaje, "Y:");
+        // Ejemplo: "200 OK MOVE_ACCEPTED POS:6,8"
+        if (mensaje.startsWith("200") && mensaje.contains("MOVE_ACCEPTED")) {
+            int[] pos = extraerPos(mensaje);
+            playerX = pos[0];
+            playerY = pos[1];
             labelPos.setText("Pos: (" + playerX + "," + playerY + ")");
             mapPanel.repaint();
             return;
@@ -447,6 +452,38 @@ public class Client extends JFrame {
             case KeyEvent.VK_DOWN:  enviarMovimiento("DOWN");  break;
             case KeyEvent.VK_LEFT:  enviarMovimiento("LEFT");  break;
             case KeyEvent.VK_RIGHT: enviarMovimiento("RIGHT"); break;
+        }
+    }
+
+    // Extrae las coordenadas del campo POS:x,y de un mensaje
+    // Ejemplo: extraerPos("200 OK MOVE_ACCEPTED POS:6,8") devuelve [6, 8]
+    int[] extraerPos(String mensaje) {
+        int idx = mensaje.indexOf("POS:");
+        if (idx < 0) return new int[]{-1, -1};
+        String resto = mensaje.substring(idx + 4);
+        // Cortar en espacio o fin de linea
+        int fin = resto.indexOf(' ');
+        if (fin >= 0) resto = resto.substring(0, fin);
+        resto = resto.trim();
+        String[] partes = resto.split(",");
+        try {
+            int x = Integer.parseInt(partes[0]);
+            int y = Integer.parseInt(partes[1]);
+            return new int[]{x, y};
+        } catch (Exception e) {
+            return new int[]{-1, -1};
+        }
+    }
+
+    // Pide el ID del recurso al usuario y envía ATTACK o DEFEND con ese ID
+    void pedirYEnviarRecurso(String accion) {
+        String idStr = JOptionPane.showInputDialog(this, "ID del recurso:", accion, JOptionPane.QUESTION_MESSAGE);
+        if (idStr == null || idStr.trim().isEmpty()) return;
+        try {
+            int id = Integer.parseInt(idStr.trim());
+            enviarComando(accion + " " + id);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "ID inválido.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
