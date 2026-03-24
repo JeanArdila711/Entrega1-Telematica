@@ -24,11 +24,10 @@ static void build_html(char* buf, int buf_size) {
     offset += snprintf(buf + offset, buf_size - offset,
         "<!DOCTYPE html><html><head>"
         "<meta charset='UTF-8'>"
-        "<meta http-equiv='refresh' content='3'>"
         "<title>GCP - Partidas activas</title>"
         "<style>"
         "body{font-family:monospace;background:#1e1e1e;color:#ccc;padding:20px}"
-        "h1{color:#4af}"
+        "h1{color:#4af;display:inline-block;margin-right:16px}"
         "table{border-collapse:collapse;width:100%%;margin-bottom:30px}"
         "th{background:#333;color:#4af;padding:8px;text-align:left}"
         "td{padding:6px 8px;border-bottom:1px solid #333}"
@@ -36,9 +35,16 @@ static void build_html(char* buf, int buf_size) {
         ".waiting{color:#fa0}.running{color:#4f4}.finished{color:#888}"
         ".attacker{color:#f44}.defender{color:#44f}"
         "h2{color:#aaa;margin-top:30px}"
+        ".btn-refresh{background:#2255aa;color:white;border:none;padding:8px 18px;"
+        "font-family:monospace;font-size:14px;cursor:pointer;border-radius:4px}"
+        ".btn-refresh:hover{background:#3366cc}"
+        ".header{display:flex;align-items:center;margin-bottom:10px}"
         "</style></head><body>"
+        "<div class='header'>"
         "<h1>GCP - Game Communication Protocol</h1>"
-        "<p>Partidas activas &mdash; se actualiza cada 3 segundos</p>"
+        "<button class='btn-refresh' onclick='location.reload()'>Recargar</button>"
+        "</div>"
+        "<p>Partidas activas</p>"
     );
 
     pthread_mutex_lock(&game_mutex);
