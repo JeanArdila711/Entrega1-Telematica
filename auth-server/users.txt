@@ -1,0 +1,68 @@
+ # Formato: username:password:role
+  # Roles posibles: ATTACKER o DEFENDER
+  alice:1234:ATTACKER
+  bob:5678:DEFENDER
+  carlos:abcd:ATTACKER
+  diana:pass:DEFENDER
+  EOF
+
+  cat > ~/Entrega1-Telematica/auth-server/auth_server.py << 'EOF'
+  import socket
+
+  PORT = 9090
+  USERS_FILE = "users.txt"
+
+  def load_users():
+      users = {}
+      try:
+          with open(USERS_FILE, "r") as f:
+              for line in f:
+                  line = line.strip()
+                  if not line or line.startswith("#"):
+                      continue
+                  parts = line.split(":")
+                  if len(parts) == 3:
+                      username, password, role = parts
+                      users[username.strip()] = role.strip()
+      except FileNotFoundError:
+          print(f"ERROR: No se encontró el archivo {USERS_FILE}")
+      return users
+
+  def handle_client(conn, addr, users):
+      print(f"[AUTH] Consulta de {addr[0]}:{addr[1]}")
+      try:
+          data = conn.recv(256).decode().strip()
+          print(f"[AUTH] Recibido: {data}")
+          parts = data.split()
+          if len(parts) == 2 and parts[0] == "GETUSER":
+              username = parts[1]
+              if username in users:
+                  role = users[username]
+                  response = f"200 OK ROLE:{role}\n"
+              else:
+                  response = "404 NOT_FOUND\n"
+          else:
+              response = "400 BAD_REQUEST\n"
+          print(f"[AUTH] Enviando: {response.strip()}")
+          conn.sendall(response.encode())
+      except Exception as e:
+          print(f"[AUTH] Error: {e}")
+      finally:
+          conn.close()
+
+  def main():
+      users = load_users()
+      print(f"[AUTH] {len(users)} usuario(s) cargado(s):
+  {list(users.keys())}")
+      server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+      server_sock.bind(("0.0.0.0", PORT))
+      server_sock.listen(5)
+      print(f"[AUTH] Servidor de identidad corriendo en el puerto {PORT}")
+      while True:
+          conn, addr = server_sock.accept()
+          handle_client(conn, addr, users)
+
+  if __name__ == "__main__":
+      main()
+  
