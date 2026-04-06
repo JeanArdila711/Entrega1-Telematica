@@ -3,12 +3,82 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <pthread.h>
 #include <time.h>
 #include "game.h"
 
 // Declarado en http_server.c
 void start_http_server(void);
+
+// ── Servicio de identidad ────────────────────────────
+#define AUTH_HOST "localhost"   // hostname del auth server (sin IP hardcodeada)
+#define AUTH_PORT 9090
+
+/*
+ * Consulta el servidor de identidad para obtener el rol de un usuario.
+ * Retorna 1 si el usuario existe y llena role_out con "ATTACKER" o "DEFENDER".
+ * Retorna 0 si el usuario no existe o hay error de conexión.
+ */
+int query_auth_server(const char* username, const char* password, char* role_out) {
+    // Resolver el hostname del auth server (sin IP hardcodeada)
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family   = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    char port_str[8];
+    snprintf(port_str, sizeof(port_str), "%d", AUTH_PORT);
+
+    if (getaddrinfo(AUTH_HOST, port_str, &hints, &res) != 0) {
+        printf("[AUTH] ERROR: no se pudo resolver '%s'\n", AUTH_HOST);
+        return 0;
+    }
+
+    // Crear socket y conectar
+    int sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if (sock < 0) {
+        freeaddrinfo(res);
+        printf("[AUTH] ERROR: no se pudo crear socket\n");
+        return 0;
+    }
+
+    if (connect(sock, res->ai_addr, res->ai_addrlen) < 0) {
+        close(sock);
+        freeaddrinfo(res);
+        printf("[AUTH] ERROR: no se pudo conectar al servidor de identidad\n");
+        return 0;
+    }
+    freeaddrinfo(res);
+
+    // Enviar consulta: GETUSER <username> <password>
+    char request[128];
+    snprintf(request, sizeof(request), "GETUSER %s %s\n", username, password ? password : "");
+    send(sock, request, strlen(request), 0);
+
+    // Leer respuesta
+    char response[128] = {0};
+    recv(sock, response, sizeof(response) - 1, 0);
+    close(sock);
+
+    // Parsear respuesta: "200 OK ROLE:ATTACKER" o "404 NOT_FOUND"
+    if (strncmp(response, "200", 3) == 0) {
+        char* role_ptr = strstr(response, "ROLE:");
+        if (role_ptr) {
+            role_ptr += 5; // saltar "ROLE:"
+            // Copiar el rol hasta el fin de línea o espacio
+            int i = 0;
+            while (role_ptr[i] && role_ptr[i] != '\n' && role_ptr[i] != '\r' && role_ptr[i] != ' ') {
+                role_out[i] = role_ptr[i];
+                i++;
+            }
+            role_out[i] = '\0';
+            return 1;
+        }
+    }
+
+    return 0; // usuario no encontrado
+}
 
 // ── Variables globales ───────────────────────────────
 GameData game;
@@ -77,8 +147,25 @@ void handle_client_message(Player* player, Room** room, const char* message,
             }
         }
 
-        // Rol hardcodeado por ahora (después viene de LDAP)
-        player->role = ((*room)->player_count % 2 == 0) ? ATTACKER : DEFENDER;
+        // Consultar rol al servidor de identidad (sin password: ya fue validado por la web)
+        char role_str_auth[16] = {0};
+        int found = query_auth_server(player->username, NULL, role_str_auth);
+
+        if (!found) {
+            snprintf(response, BUFFER_SIZE, "403 FORBIDDEN USER_NOT_FOUND\n");
+            pthread_mutex_unlock(&game_mutex);
+            return;
+        }
+
+        if (strcmp(role_str_auth, "ATTACKER") == 0) {
+            player->role = ATTACKER;
+        } else if (strcmp(role_str_auth, "DEFENDER") == 0) {
+            player->role = DEFENDER;
+        } else {
+            snprintf(response, BUFFER_SIZE, "403 FORBIDDEN INVALID_ROLE\n");
+            pthread_mutex_unlock(&game_mutex);
+            return;
+        }
 
         add_player_to_room(*room, player);
 

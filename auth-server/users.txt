@@ -1,0 +1,6 @@
+# Formato: username:password:role
+# Roles posibles: ATTACKER o DEFENDER
+alice:1234:ATTACKER
+bob:5678:DEFENDER
+carlos:abcd:ATTACKER
+diana:pass:DEFENDER
