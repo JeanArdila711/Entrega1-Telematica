@@ -51,9 +51,12 @@ int query_auth_server(const char* username, const char* password, char* role_out
     }
     freeaddrinfo(res);
 
-    // Enviar consulta: GETUSER <username> <password>
+    // Enviar consulta: GETUSER <username> [password]
     char request[128];
-    snprintf(request, sizeof(request), "GETUSER %s %s\n", username, password ? password : "");
+    if (password && password[0] != '\0')
+        snprintf(request, sizeof(request), "GETUSER %s %s\n", username, password);
+    else
+        snprintf(request, sizeof(request), "GETUSER %s\n", username);
     send(sock, request, strlen(request), 0);
 
     // Leer respuesta

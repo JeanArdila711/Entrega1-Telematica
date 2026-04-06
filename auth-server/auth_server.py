@@ -48,17 +48,24 @@ def handle_client(conn, addr, users):
         print(f"[AUTH] Recibido: {data}")
 
         # Esperamos: GETUSER <username> <password>
+        # O bien:   GETUSER <username>  (sin password, desde cliente TCP)
         parts = data.split()
-        if len(parts) == 3 and parts[0] == "GETUSER":
+        if len(parts) >= 2 and parts[0] == "GETUSER":
             username = parts[1]
-            password = parts[2]
-            if username in users and users[username]["password"] == password:
+            if username not in users:
+                response = "404 NOT_FOUND\n"
+            elif len(parts) == 3:
+                # Con password: validar
+                password = parts[2]
+                if users[username]["password"] == password:
+                    role = users[username]["role"]
+                    response = f"200 OK ROLE:{role}\n"
+                else:
+                    response = "403 FORBIDDEN WRONG_PASSWORD\n"
+            else:
+                # Sin password: solo devolver el rol (JOIN desde cliente TCP)
                 role = users[username]["role"]
                 response = f"200 OK ROLE:{role}\n"
-            elif username in users:
-                response = "403 FORBIDDEN WRONG_PASSWORD\n"
-            else:
-                response = "404 NOT_FOUND\n"
         else:
             response = "400 BAD_REQUEST\n"
 
