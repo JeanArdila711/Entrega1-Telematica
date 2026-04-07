@@ -1,1 +1,141 @@
-# Entrega1-Telematica
+# GCP - Game Communication Protocol
+
+Proyecto de Internet: Arquitectura y Protocolos — 2026-1  
+**Autores:** Jean Carlo Ardila Acevedo - Valentina Zapata Acosta
+
+---
+
+## Que es esto?
+
+Un juego multijugador en red donde un jugador asume el rol de **Atacante** y otro de **Defensor**
+dentro de un simulador de centro de datos. El atacante explora un mapa buscando servidores criticos
+para atacarlos, y el defensor debe mitigarlos antes de que todos caigan.
+
+El sistema esta compuesto por tres componentes:
+
+| Componente | Lenguaje | Puerto |
+|---|---|---|
+| Servidor de juego | C | 8080 |
+| Servidor HTTP (monitor) | C | 8081 |
+| Servidor de identidad | Python | 9090 |
+| Cliente | Java o Python | - |
+
+---
+
+## Estructura del repositorio
+
+```
+Entrega1-Telematica/
+├── server/
+│   ├── server.c        # Servidor principal: sockets, hilos, protocolo GCP
+│   ├── game.c          # Logica del juego: mover, atacar, defender
+│   ├── game.h          # Definiciones de estructuras y funciones
+│   ├── http_server.c   # Servidor HTTP: login web y monitor de partidas
+│   └── Makefile
+├── auth-server/
+│   ├── auth_server.py  # Servidor de identidad
+│   └── users.txt       # Base de datos de usuarios (usuario:password:rol)
+├── cliente-java/
+│   └── Client.java     # Cliente con interfaz grafica en Java Swing
+├── cliente-python/
+│   ├── gui.py          # Interfaz grafica en tkinter
+│   └── client.py       # Logica de conexion y protocolo
+└── protocolo/
+    └── protocolo.md    # Especificacion completa del protocolo GCP
+```
+
+---
+
+## Como ejecutar
+
+### Requisitos
+
+- Linux o WSL (para compilar el servidor en C)
+- `gcc` y `make`
+- `python3`
+- `java` y `javac`
+
+### Paso 1 — Compilar el servidor
+
+```bash
+cd server/
+make
+```
+
+### Paso 2 — Arrancar el servidor de identidad
+
+En una terminal aparte:
+
+```bash
+cd auth-server/
+python3 auth_server.py
+```
+
+### Paso 3 — Arrancar el servidor de juego
+
+En otra terminal:
+
+```bash
+cd server/
+mkdir -p logs
+./server 8080 logs/server.log
+```
+
+Si el servidor de identidad esta en otra maquina:
+
+```bash
+./server 8080 logs/server.log <hostname-del-auth-server>
+```
+
+### Paso 4 — Abrir la interfaz web
+
+En el navegador:
+
+```
+http://<IP-del-servidor>:8081
+```
+
+Ahi puedes hacer login y ver las partidas activas.
+
+### Paso 5 — Conectar un cliente
+
+**Java:**
+```bash
+cd cliente-java/
+javac Client.java
+java Client <IP-del-servidor> 8080
+```
+
+**Python:**
+```bash
+cd cliente-python/
+python3 gui.py <IP-del-servidor> 8080
+```
+
+---
+
+## Usuarios de prueba
+
+| Usuario | Contrasena | Rol |
+|---|---|---|
+| alice | 1234 | ATTACKER |
+| bob | 5678 | DEFENDER |
+| carlos | abcd | ATTACKER |
+| diana | pass | DEFENDER |
+
+---
+
+## Como se juega
+
+1. Conecta dos clientes: uno con un usuario ATTACKER y otro con un DEFENDER.
+2. La partida inicia automaticamente cuando hay al menos uno de cada rol en la misma sala.
+3. El **ATTACKER** se mueve por el mapa con las flechas y usa SCAN para detectar recursos criticos.
+4. Cuando encuentra un recurso, usa ATTACK para atacarlo.
+5. El **DEFENDER** recibe una notificacion de ataque y debe usar DEFEND para mitigarlo.
+6. Ganan los defensores si mitigan todos los ataques. Ganan los atacantes si todos los recursos quedan bajo ataque al mismo tiempo.
+
+---
+
+## Protocolo
+
+Ver la especificacion completa en [`protocolo/protocolo.md`](protocolo/protocolo.md).
