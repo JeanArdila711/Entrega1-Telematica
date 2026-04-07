@@ -1,3 +1,4 @@
+import sys
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 from client import GCPClient, SERVER_PORT
@@ -16,7 +17,7 @@ BTN_BG    = '#2a2a2a'
 STATUS_FG = '#cccccc'
 
 class GameGUI:
-    def __init__(self, root):
+    def __init__(self, root, host, port):
         self.root = root
         self.root.title(WINDOW_TITLE)
         self.root.resizable(True, True)
@@ -26,7 +27,7 @@ class GameGUI:
         self.resource_positions = []
 
         self._build_ui()
-        self._connect()
+        self._connect(host, port)
 
     def _build_ui(self):
         # ── Barra de estado superior ───────────────────
@@ -167,11 +168,7 @@ class GameGUI:
                                     text=inicial, fill='white',
                                     font=('Courier', 9, 'bold'))
 
-    def _connect(self):
-        host = simpledialog.askstring("Servidor", "IP del servidor:", initialvalue="localhost")
-        if not host:
-            host = "localhost"
-
+    def _connect(self, host, port):
         username = simpledialog.askstring("Usuario", "Tu nombre de usuario:")
         if not username:
             username = "jugador1"
@@ -180,7 +177,7 @@ class GameGUI:
         if not room:
             room = "0"
 
-        if self.client.connect(host, SERVER_PORT):
+        if self.client.connect(host, port):
             self.client.join(int(room), username)
             self.log("Conectado al servidor.")
         else:
@@ -241,6 +238,9 @@ class GameGUI:
 
 # ── Punto de entrada ──────────────────────────────────
 if __name__ == '__main__':
+    host = sys.argv[1] if len(sys.argv) > 1 else "localhost"
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else SERVER_PORT
+
     root = tk.Tk()
-    app = GameGUI(root)
+    app = GameGUI(root, host, port)
     root.mainloop()
