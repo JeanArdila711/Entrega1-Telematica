@@ -199,17 +199,18 @@ NOTIFY <tipo_evento> <datos>
 | Tipo de evento | Cuando se envia |
 |---|---|
 | `ATTACK_STARTED` | A todos los defensores cuando un atacante lanza un ataque. |
-| `RESOURCE_FOUND` | Al atacante cuando pisa la casilla de un recurso critico. |
 | `ATTACK_MITIGATED` | A todos cuando un defensor mitiga el ataque a tiempo. |
 | `GAME_OVER` | A todos cuando la partida termina. |
 | `PLAYER_JOINED` | A todos cuando un nuevo jugador entra a la sala. |
+| `PLAYER_LEFT` | A todos cuando un jugador abandona la sala. |
 
 **Ejemplos:**
 
 ```text
 NOTIFY ATTACK_STARTED RESOURCE_ID:1 ATTACKER:hacker99
-NOTIFY RESOURCE_FOUND RESOURCE_ID:2 POS:12,4
+NOTIFY ATTACK_MITIGATED RESOURCE_ID:1 DEFENDER:defender01
 NOTIFY GAME_OVER RESULT:ATTACKERS_WIN
+NOTIFY GAME_OVER RESULT:DEFENDERS_WIN
 ```
 
 ---
