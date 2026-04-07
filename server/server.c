@@ -12,8 +12,8 @@
 void start_http_server(void);
 
 // ── Servicio de identidad ────────────────────────────
-#define AUTH_HOST "localhost"   // hostname del auth server (sin IP hardcodeada)
 #define AUTH_PORT 9090
+char auth_host[256] = "localhost";  // puede sobreescribirse desde argv
 
 /*
  * Consulta el servidor de identidad para obtener el rol de un usuario.
@@ -30,8 +30,8 @@ int query_auth_server(const char* username, const char* password, char* role_out
     char port_str[8];
     snprintf(port_str, sizeof(port_str), "%d", AUTH_PORT);
 
-    if (getaddrinfo(AUTH_HOST, port_str, &hints, &res) != 0) {
-        printf("[AUTH] ERROR: no se pudo resolver '%s'\n", AUTH_HOST);
+    if (getaddrinfo(auth_host, port_str, &hints, &res) != 0) {
+        printf("[AUTH] ERROR: no se pudo resolver '%s'\n", auth_host);
         return 0;
     }
 
@@ -365,14 +365,20 @@ void* handle_client(void* arg) {
 // ── Main ─────────────────────────────────────────────
 int main(int argc, char* argv[]) {
 
-    if (argc != 3) {
-        printf("Uso: ./server <puerto> <archivo_logs>\n");
-        printf("Ejemplo: ./server 8080 logs/server.log\n");
+    if (argc < 3) {
+        printf("Uso: ./server <puerto> <archivo_logs> [auth_host]\n");
+        printf("Ejemplo: ./server 8080 logs/server.log localhost\n");
         exit(1);
     }
 
     int port = atoi(argv[1]);
     char* log_path = argv[2];
+
+    if (argc >= 4) {
+        strncpy(auth_host, argv[3], sizeof(auth_host) - 1);
+        auth_host[sizeof(auth_host) - 1] = '\0';
+    }
+    printf("Auth server: %s:%d\n", auth_host, AUTH_PORT);
 
     log_file = fopen(log_path, "a");
     if (!log_file) {
