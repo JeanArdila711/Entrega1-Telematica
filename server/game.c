@@ -102,6 +102,32 @@ void notify_room(Room* room, Player* sender, const char* message) {
     }
 }
 
+// Manda un mensaje a TODOS los jugadores de la sala (incluido el que lo originó)
+void notify_all(Room* room, const char* message) {
+    for (int i = 0; i < room->player_count; i++) {
+        Player* p = room->players[i];
+        if (p && p->active) {
+            send(p->socket_fd, message, strlen(message), 0);
+        }
+    }
+}
+
+// Retorna 1 si todos los recursos están bajo ataque (ganan atacantes)
+int check_attackers_win(Room* room) {
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        if (!room->resources[i].under_attack) return 0;
+    }
+    return 1;
+}
+
+// Retorna 1 si ningún recurso está bajo ataque (ganan defensores)
+int check_defenders_win(Room* room) {
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        if (room->resources[i].under_attack) return 0;
+    }
+    return 1;
+}
+
 // Procesa el comando MOVE
 int process_move(Player* player, Room* room, const char* direction, char* response) {
     if (room->state != RUNNING) {
