@@ -2,8 +2,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
+#include <pthread.h>
 #include "game.h"
 #include <sys/socket.h>
+
+// Mutex global del juego (definido en server.c)
+extern pthread_mutex_t game_mutex;
 
 // Inicializa el estado global del juego
 void init_game(GameData* game) {
@@ -33,7 +38,11 @@ Room* create_room(GameData* game) {
         room->resources[i].id = i + 1;
         room->resources[i].x = rand() % MAP_SIZE;
         room->resources[i].y = rand() % MAP_SIZE;
-        room->resources[i].under_attack = 0;
+        room->resources[i].state = SAFE;
+        room->resources[i].attack_started_at = 0;
+        room->resources[i].timer_active = 0;
+        room->resources[i].timer_token = 0;
+        room->resources[i].room_id = room->id;
     }
 
     game->room_count++;
@@ -112,18 +121,21 @@ void notify_all(Room* room, const char* message) {
     }
 }
 
-// Retorna 1 si todos los recursos están bajo ataque (ganan atacantes)
+// Retorna 1 si TODOS los recursos están COMPROMISED (ganan atacantes).
+// Un recurso solo queda COMPROMISED si su temporizador venció sin defensa.
 int check_attackers_win(Room* room) {
     for (int i = 0; i < MAX_RESOURCES; i++) {
-        if (!room->resources[i].under_attack) return 0;
+        if (room->resources[i].state != COMPROMISED) return 0;
     }
     return 1;
 }
 
-// Retorna 1 si ningún recurso está bajo ataque (ganan defensores)
+// Retorna 1 si ningún recurso está UNDER_ATTACK ni COMPROMISED,
+// es decir: todos los ataques fueron defendidos.
+// (Se comprueba tras una defensa exitosa, no al inicio.)
 int check_defenders_win(Room* room) {
     for (int i = 0; i < MAX_RESOURCES; i++) {
-        if (room->resources[i].under_attack) return 0;
+        if (room->resources[i].state != SAFE) return 0;
     }
     return 1;
 }
@@ -202,8 +214,24 @@ int process_attack(Player* player, Room* room, int resource_id, char* response) 
                 snprintf(response, BUFFER_SIZE, "409 CONFLICT NOT_ON_RESOURCE\n");
                 return -1;
             }
-            room->resources[i].under_attack = 1;
-            snprintf(response, BUFFER_SIZE, "200 OK ATTACK_LAUNCHED RESOURCE_ID:%d\n", resource_id);
+            // No se puede re-atacar algo ya comprometido o bajo ataque activo
+            if (room->resources[i].state == COMPROMISED) {
+                snprintf(response, BUFFER_SIZE,
+                         "409 CONFLICT RESOURCE_ALREADY_COMPROMISED\n");
+                return -1;
+            }
+            if (room->resources[i].state == UNDER_ATTACK) {
+                snprintf(response, BUFFER_SIZE,
+                         "409 CONFLICT RESOURCE_ALREADY_UNDER_ATTACK\n");
+                return -1;
+            }
+            // Marcar ataque y arrancar temporizador
+            room->resources[i].state = UNDER_ATTACK;
+            room->resources[i].attack_started_at = time(NULL);
+            start_attack_timer(room, &room->resources[i]);
+            snprintf(response, BUFFER_SIZE,
+                     "200 OK ATTACK_LAUNCHED RESOURCE_ID:%d TIMEOUT:%d\n",
+                     resource_id, ATTACK_TIMEOUT);
             return 0;
         }
     }
@@ -226,16 +254,100 @@ int process_defend(Player* player, Room* room, int resource_id, char* response) 
     // Buscar el recurso
     for (int i = 0; i < MAX_RESOURCES; i++) {
         if (room->resources[i].id == resource_id) {
-            if (!room->resources[i].under_attack) {
-                snprintf(response, BUFFER_SIZE, "409 CONFLICT RESOURCE_NOT_UNDER_ATTACK\n");
+            if (room->resources[i].state == COMPROMISED) {
+                snprintf(response, BUFFER_SIZE,
+                         "409 CONFLICT RESOURCE_ALREADY_COMPROMISED\n");
                 return -1;
             }
-            room->resources[i].under_attack = 0;
-            snprintf(response, BUFFER_SIZE, "200 OK DEFENSE_SUCCESS RESOURCE_ID:%d\n", resource_id);
+            if (room->resources[i].state != UNDER_ATTACK) {
+                snprintf(response, BUFFER_SIZE,
+                         "409 CONFLICT RESOURCE_NOT_UNDER_ATTACK\n");
+                return -1;
+            }
+            // Invalidar el temporizador activo y volver a SAFE
+            room->resources[i].timer_token++;   // cualquier timer viejo queda inválido
+            room->resources[i].state = SAFE;
+            room->resources[i].attack_started_at = 0;
+            snprintf(response, BUFFER_SIZE,
+                     "200 OK DEFENSE_SUCCESS RESOURCE_ID:%d\n", resource_id);
             return 0;
         }
     }
 
     snprintf(response, BUFFER_SIZE, "404 NOT_FOUND RESOURCE_NOT_FOUND\n");
     return -1;
+}
+
+// ── Temporizador de ataque ────────────────────────────
+// Argumento que se pasa al hilo temporizador
+typedef struct {
+    Room* room;
+    Resource* resource;
+    int token;       // snapshot del timer_token al lanzar el hilo
+} AttackTimerArgs;
+
+static void* attack_timer_thread(void* arg) {
+    AttackTimerArgs* args = (AttackTimerArgs*)arg;
+    Room* room = args->room;
+    Resource* res = args->resource;
+    int my_token = args->token;
+    free(args);
+
+    sleep(ATTACK_TIMEOUT);
+
+    pthread_mutex_lock(&game_mutex);
+
+    // Si el token cambió, alguien defendió o hubo un nuevo ataque: salimos.
+    if (res->timer_token != my_token) {
+        pthread_mutex_unlock(&game_mutex);
+        return NULL;
+    }
+
+    // Si la sala ya terminó, no hacemos nada.
+    if (room->state != RUNNING) {
+        pthread_mutex_unlock(&game_mutex);
+        return NULL;
+    }
+
+    // Sigue bajo ataque sin mitigar → queda comprometido
+    if (res->state == UNDER_ATTACK) {
+        res->state = COMPROMISED;
+        res->timer_active = 0;
+
+        char notify[BUFFER_SIZE];
+        snprintf(notify, BUFFER_SIZE,
+                 "NOTIFY RESOURCE_DOWN RESOURCE_ID:%d\n", res->id);
+        notify_all(room, notify);
+
+        // ¿Ganaron los atacantes?
+        if (check_attackers_win(room)) {
+            room->state = FINISHED;
+            char gameover[BUFFER_SIZE];
+            snprintf(gameover, BUFFER_SIZE,
+                     "NOTIFY GAME_OVER RESULT:ATTACKERS_WIN\n");
+            notify_all(room, gameover);
+        }
+    }
+
+    pthread_mutex_unlock(&game_mutex);
+    return NULL;
+}
+
+void start_attack_timer(Room* room, Resource* resource) {
+    resource->timer_token++;
+    resource->timer_active = 1;
+
+    AttackTimerArgs* args = malloc(sizeof(AttackTimerArgs));
+    if (!args) return;
+    args->room = room;
+    args->resource = resource;
+    args->token = resource->timer_token;
+
+    pthread_t tid;
+    if (pthread_create(&tid, NULL, attack_timer_thread, args) != 0) {
+        free(args);
+        resource->timer_active = 0;
+        return;
+    }
+    pthread_detach(tid);
 }

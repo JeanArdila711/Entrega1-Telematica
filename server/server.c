@@ -246,20 +246,15 @@ void handle_client_message(Player* player, Room** room, const char* message,
         int resource_id = atoi(param1);
         process_attack(player, *room, resource_id, response);
 
-        // Si el ataque fue exitoso, notificar a defensores
+        // Si el ataque fue exitoso, notificar a defensores (con tiempo restante).
+        // La victoria de atacantes ya NO ocurre aquí: ocurre cuando el
+        // temporizador vence sin ser mitigado (lo gestiona game.c).
         if (strncmp(response, "200", 3) == 0) {
             char notify[BUFFER_SIZE];
-            snprintf(notify, BUFFER_SIZE, "NOTIFY ATTACK_STARTED RESOURCE_ID:%d ATTACKER:%s\n",
-                     resource_id, player->username);
+            snprintf(notify, BUFFER_SIZE,
+                     "NOTIFY ATTACK_STARTED RESOURCE_ID:%d ATTACKER:%s TIMEOUT:%d\n",
+                     resource_id, player->username, ATTACK_TIMEOUT);
             notify_room(*room, player, notify);
-
-            // Verificar si ganan los atacantes (todos los recursos bajo ataque)
-            if (check_attackers_win(*room)) {
-                (*room)->state = FINISHED;
-                char gameover[BUFFER_SIZE];
-                snprintf(gameover, BUFFER_SIZE, "NOTIFY GAME_OVER RESULT:ATTACKERS_WIN\n");
-                notify_all(*room, gameover);
-            }
         }
         pthread_mutex_unlock(&game_mutex);
 

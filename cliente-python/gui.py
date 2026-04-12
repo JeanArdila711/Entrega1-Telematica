@@ -222,7 +222,25 @@ class GameGUI:
 
         if 'NOTIFY' in message:
             if 'ATTACK_STARTED' in message:
-                messagebox.showwarning("ATAQUE", f"Recurso bajo ataque!\n{message}")
+                # Extraer TIMEOUT si está presente
+                timeout = None
+                for part in message.split():
+                    if part.startswith('TIMEOUT:'):
+                        timeout = part.split(':')[1]
+                        break
+                if timeout:
+                    messagebox.showwarning(
+                        "ATAQUE",
+                        f"Recurso bajo ataque!\n"
+                        f"Los defensores tienen {timeout} segundos para mitigar.\n\n{message}"
+                    )
+                else:
+                    messagebox.showwarning("ATAQUE", f"Recurso bajo ataque!\n{message}")
+            elif 'RESOURCE_DOWN' in message:
+                messagebox.showerror(
+                    "RECURSO COMPROMETIDO",
+                    f"Un recurso cayo: se acabo el tiempo para defenderlo.\n{message}"
+                )
             elif 'GAME_OVER' in message:
                 messagebox.showinfo("FIN DEL JUEGO", message)
             elif 'ATTACK_MITIGATED' in message:

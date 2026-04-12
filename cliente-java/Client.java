@@ -390,9 +390,25 @@ public class Client extends JFrame {
         // Notificacion del servidor: ataque, defensa o fin de juego
         if (mensaje.startsWith("NOTIFY")) {
             if (mensaje.contains("ATTACK_STARTED")) {
-                JOptionPane.showMessageDialog(this,
-                    "Ataque en curso!\n" + mensaje,
+                // Extraer TIMEOUT si viene en el mensaje
+                String timeoutStr = "";
+                for (String part : mensaje.split(" ")) {
+                    if (part.startsWith("TIMEOUT:")) {
+                        timeoutStr = part.substring(8).trim();
+                        break;
+                    }
+                }
+                String aviso = "Ataque en curso!\n";
+                if (!timeoutStr.isEmpty()) {
+                    aviso += "Tienen " + timeoutStr + " segundos para mitigarlo.\n";
+                }
+                aviso += mensaje;
+                JOptionPane.showMessageDialog(this, aviso,
                     "ALERTA", JOptionPane.WARNING_MESSAGE);
+            } else if (mensaje.contains("RESOURCE_DOWN")) {
+                JOptionPane.showMessageDialog(this,
+                    "Un recurso cayo: se acabo el tiempo para defenderlo.\n" + mensaje,
+                    "RECURSO COMPROMETIDO", JOptionPane.ERROR_MESSAGE);
             } else if (mensaje.contains("GAME_OVER")) {
                 JOptionPane.showMessageDialog(this,
                     "Partida terminada\n" + mensaje,

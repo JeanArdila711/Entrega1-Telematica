@@ -1,12 +1,19 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include <pthread.h>
+#include <time.h>
+
 #define MAX_PLAYERS 10
 #define MAX_ROOMS   5
 #define MAP_SIZE    20
 #define MAX_RESOURCES 2
 #define BUFFER_SIZE 1024
 #define MAX_USERNAME 21
+
+// Tiempo (segundos) que los defensores tienen para mitigar un ataque
+// antes de que el recurso quede comprometido de forma permanente.
+#define ATTACK_TIMEOUT 30
 
 // Roles del jugador
 typedef enum {
@@ -21,11 +28,22 @@ typedef enum {
     FINISHED   // Partida terminada
 } GameState;
 
+// Estado de un recurso crítico
+typedef enum {
+    SAFE,            // Sin ataque activo
+    UNDER_ATTACK,    // Siendo atacado, defensor aún puede mitigar
+    COMPROMISED      // Ataque consumado: el timer venció
+} ResourceState;
+
 // Recurso crítico en el mapa
 typedef struct {
     int id;
     int x, y;
-    int under_attack;   // 1 si está siendo atacado, 0 si no
+    ResourceState state;
+    time_t attack_started_at;    // timestamp de inicio del ataque actual
+    int timer_active;            // 1 mientras el hilo temporizador esté vivo
+    int timer_token;             // se incrementa para invalidar timers antiguos
+    int room_id;                 // para que el hilo timer sepa a qué sala pertenece
 } Resource;
 
 // Jugador
@@ -71,5 +89,9 @@ int process_move(Player* player, Room* room, const char* direction, char* respon
 int process_scan(Player* player, Room* room, char* response);
 int process_attack(Player* player, Room* room, int resource_id, char* response);
 int process_defend(Player* player, Room* room, int resource_id, char* response);
+
+// Lanza el hilo temporizador para un ataque en curso.
+// Si expira sin DEFEND, marca el recurso como COMPROMISED.
+void start_attack_timer(Room* room, Resource* resource);
 
 #endif
