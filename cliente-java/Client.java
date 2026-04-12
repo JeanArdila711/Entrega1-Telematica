@@ -58,7 +58,16 @@ public class Client extends JFrame {
         String nombre = JOptionPane.showInputDialog("Ingresa tu nombre de jugador:");
         if (nombre == null || nombre.trim().isEmpty()) return;
 
-        String salaStr = JOptionPane.showInputDialog("ID de sala (0 para unirse/crear automáticamente):", "0");
+        // Consultar al servidor las salas activas y mostrarlas al usuario
+        String listado = fetchRooms(host, puerto);
+        String prompt;
+        if (listado.isEmpty()) {
+            prompt = "No hay salas activas.\nEscribe 0 para crear una nueva:";
+        } else {
+            prompt = "Salas activas:\n" + listado +
+                     "\n\nEscribe el ID de una sala para unirte, o 0 para crear una nueva:";
+        }
+        String salaStr = JOptionPane.showInputDialog(prompt, "0");
         if (salaStr == null) return;
         int salaId;
         try {
@@ -526,6 +535,36 @@ public class Client extends JFrame {
             enviarComando(accion + " " + id);
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "ID inválido.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Abre una conexion corta al servidor, envia LIST, y retorna el listado
+    // de salas activas formateado para mostrar al usuario. Cadena vacia si no hay.
+    static String fetchRooms(String host, int puerto) {
+        try (Socket s = new Socket()) {
+            s.connect(new InetSocketAddress(host, puerto), 2000);
+            s.setSoTimeout(2000);
+            s.getOutputStream().write("LIST\n".getBytes());
+            BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+            String line = in.readLine();
+            if (line == null) return "";
+            // Formato: "200 OK ROOMS COUNT:N LIST:1,WAITING,1;2,RUNNING,2"
+            int idx = line.indexOf("LIST:");
+            if (idx < 0) return "";
+            String raw = line.substring(idx + 5).trim();
+            if (raw.isEmpty()) return "";
+            StringBuilder sb = new StringBuilder();
+            for (String entry : raw.split(";")) {
+                String[] f = entry.split(",");
+                if (f.length == 3) {
+                    sb.append("  Sala #").append(f[0])
+                      .append(" - ").append(f[1])
+                      .append(" - ").append(f[2]).append(" jugador(es)\n");
+                }
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "";
         }
     }
 

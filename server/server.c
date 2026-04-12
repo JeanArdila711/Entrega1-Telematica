@@ -143,8 +143,34 @@ void handle_client_message(Player* player, Room** room, const char* message,
 
     sscanf(message, "%s %s %s", cmd, param1, param2);
 
+    // LIST → devuelve salas activas con su estado
+    if (strcmp(cmd, "LIST") == 0) {
+        pthread_mutex_lock(&game_mutex);
+
+        char rooms_str[BUFFER_SIZE - 64] = {0};
+        int offset = 0;
+        int count = 0;
+
+        for (int i = 0; i < game.room_count; i++) {
+            Room* r = &game.rooms[i];
+            if (r->state == FINISHED) continue;   // solo activas
+            const char* st = r->state == WAITING ? "WAITING" : "RUNNING";
+            int written = snprintf(rooms_str + offset,
+                                    sizeof(rooms_str) - offset,
+                                    "%s%d,%s,%d",
+                                    count == 0 ? "" : ";",
+                                    r->id, st, r->player_count);
+            if (written <= 0 || (size_t)written >= sizeof(rooms_str) - offset) break;
+            offset += written;
+            count++;
+        }
+
+        snprintf(response, BUFFER_SIZE, "200 OK ROOMS COUNT:%d LIST:%s\n",
+                 count, rooms_str);
+        pthread_mutex_unlock(&game_mutex);
+
     // JOIN <sala_id> <username>
-    if (strcmp(cmd, "JOIN") == 0) {
+    } else if (strcmp(cmd, "JOIN") == 0) {
         int sala_id = atoi(param1);
         strncpy(player->username, param2, MAX_USERNAME - 1);
         player->active = 1;

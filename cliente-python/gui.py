@@ -1,7 +1,7 @@
 import sys
 import tkinter as tk
 from tkinter import messagebox, simpledialog
-from client import GCPClient, SERVER_PORT
+from client import GCPClient, SERVER_PORT, fetch_rooms
 
 CELL_SIZE = 28
 MAP_SIZE  = 20
@@ -180,7 +180,21 @@ class GameGUI:
         if not username:
             username = "jugador1"
 
-        room = simpledialog.askstring("Sala", "ID de sala (0 para crear nueva):", initialvalue="0")
+        # Pedir al servidor la lista de salas activas y mostrarla
+        rooms = fetch_rooms(host, port)
+        if rooms:
+            listado = "\n".join(
+                f"  Sala #{rid} - {estado} - {n} jugador(es)"
+                for rid, estado, n in rooms
+            )
+            prompt = (
+                "Salas activas:\n" + listado +
+                "\n\nEscribe el ID de una sala para unirte, o 0 para crear una nueva:"
+            )
+        else:
+            prompt = "No hay salas activas.\nEscribe 0 para crear una nueva:"
+
+        room = simpledialog.askstring("Sala", prompt, initialvalue="0")
         if not room:
             room = "0"
 

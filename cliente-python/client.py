@@ -124,6 +124,50 @@ class GCPClient:
         self.username = username
         self.send_command(f"JOIN {room_id} {username}")
 
+    def list_rooms(self):
+        """Solicita al servidor la lista de salas activas (respuesta asincrona)."""
+        self.send_command("LIST")
+
+
+def fetch_rooms(host, port, timeout=2.0):
+    """
+    Abre una conexion corta al servidor, envia LIST, recibe la lista
+    de salas y cierra. No afecta la conexion principal del cliente.
+    Retorna lista de tuplas (id, estado, n_jugadores), o [] en caso de error.
+    """
+    try:
+        results = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+        if not results:
+            return []
+        family, socktype, proto, _, sockaddr = results[0]
+        s = socket.socket(family, socktype, proto)
+        s.settimeout(timeout)
+        s.connect(sockaddr)
+        s.send(b"LIST\n")
+        data = s.recv(BUFFER_SIZE)
+        s.close()
+        if not data:
+            return []
+        message = data.decode('utf-8').strip()
+        rooms = []
+        for part in message.split():
+            if part.startswith("LIST:"):
+                raw = part[5:]
+                if not raw:
+                    return []
+                for entry in raw.split(';'):
+                    fields = entry.split(',')
+                    if len(fields) == 3:
+                        try:
+                            rooms.append((int(fields[0]), fields[1], int(fields[2])))
+                        except ValueError:
+                            pass
+                return rooms
+        return rooms
+    except Exception as e:
+        print(f"Error pidiendo LIST: {e}")
+        return []
+
     def move(self, direction):
         self.send_command(f"MOVE {direction}")
 
