@@ -196,6 +196,20 @@ class GameGUI:
     def _process_message(self, code, message):
         self.log(f"<- {message}")
 
+        # Mostrar ID de sala de forma visible cuando se une/crea una sala
+        if code == '200' and 'JOINED' in message:
+            for part in message.split():
+                if part.startswith('ROOM:'):
+                    room_id = part.split(':')[1]
+                    self.log(f"*** ID DE SALA: {room_id} ***")
+                    self.log(f"*** Comparte este ID con el otro jugador ***")
+                    messagebox.showinfo(
+                        "Sala asignada",
+                        f"Estás en la sala #{room_id}\n\n"
+                        f"Dile al otro jugador que use este ID para unirse."
+                    )
+                    break
+
         # Actualizar barra de estado
         if self.client.role and self.client.username:
             color = '#dc3c3c' if self.client.role == 'ATTACKER' else '#3c82dc'

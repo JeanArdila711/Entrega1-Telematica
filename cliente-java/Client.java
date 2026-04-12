@@ -336,6 +336,22 @@ public class Client extends JFrame {
                 parsearRecursos(mensaje);
             }
 
+            // Mostrar el ID de sala para que el jugador pueda compartirlo
+            String roomId = "?";
+            for (String part : mensaje.split(" ")) {
+                if (part.startsWith("ROOM:")) {
+                    roomId = part.substring(5);
+                    break;
+                }
+            }
+            agregarLog("*** ID DE SALA: " + roomId + " ***");
+            agregarLog("*** Comparte este ID con el otro jugador ***");
+            final String finalRoomId = roomId;
+            JOptionPane.showMessageDialog(this,
+                "Estas en la sala #" + finalRoomId + "\n\n" +
+                "Dile al otro jugador que use este ID para unirse.",
+                "Sala asignada", JOptionPane.INFORMATION_MESSAGE);
+
             labelRole.setText("Rol: " + playerRole);
             labelPos.setText("Pos: (" + playerX + "," + playerY + ")");
             mapPanel.repaint();

@@ -8,6 +8,8 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/time.h>
 #include <errno.h>
 #include "game.h"
 
@@ -45,6 +47,13 @@ int query_auth_server(const char* username, const char* password, char* role_out
         printf("[AUTH] ERROR: no se pudo crear socket\n");
         return 0;
     }
+
+    // Timeouts: si el auth no responde en 3s, fallar rápido en vez de colgar
+    struct timeval tv;
+    tv.tv_sec = 3;
+    tv.tv_usec = 0;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
     if (connect(sock, res->ai_addr, res->ai_addrlen) < 0) {
         close(sock);

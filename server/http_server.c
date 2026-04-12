@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <sys/socket.h>
+#include <sys/time.h>
 #include "game.h"
 
 #define HTTP_PORT 8081
@@ -213,6 +215,23 @@ static void handle_http_client(int client_fd) {
     close(client_fd);
 }
 
+// ── Hilo por conexión HTTP ────────────────────────────
+
+static void* http_client_thread(void* arg) {
+    int client_fd = *(int*)arg;
+    free(arg);
+
+    // Timeouts para que una conexión colgada no bloquee nada más
+    struct timeval tv;
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+    setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    setsockopt(client_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+
+    handle_http_client(client_fd);
+    return NULL;
+}
+
 // ── Hilo del servidor HTTP ────────────────────────────
 
 static void* http_thread(void* arg) {
@@ -245,7 +264,20 @@ static void* http_thread(void* arg) {
         socklen_t addrlen = sizeof(client_addr);
         int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addrlen);
         if (client_fd < 0) continue;
-        handle_http_client(client_fd);
+
+        // Atender cada petición en un hilo aparte para no bloquear
+        int* fd_ptr = malloc(sizeof(int));
+        if (!fd_ptr) { close(client_fd); continue; }
+        *fd_ptr = client_fd;
+
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, http_client_thread, fd_ptr) != 0) {
+            perror("[HTTP] Error creando hilo cliente");
+            close(client_fd);
+            free(fd_ptr);
+            continue;
+        }
+        pthread_detach(tid);
     }
 
     close(server_fd);
