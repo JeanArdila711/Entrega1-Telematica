@@ -6,6 +6,9 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <time.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
 #include "game.h"
 
 // Declarado en http_server.c
@@ -380,11 +383,19 @@ int main(int argc, char* argv[]) {
     }
     printf("Auth server: %s:%d\n", auth_host, AUTH_PORT);
 
+    // Crear la carpeta logs/ si no existe (no falla si ya existe)
+    if (mkdir("logs", 0755) < 0 && errno != EEXIST) {
+        perror("Advertencia: no se pudo crear la carpeta logs/");
+    }
+
     log_file = fopen(log_path, "a");
     if (!log_file) {
         perror("Error abriendo archivo de logs");
         exit(1);
     }
+
+    // Inicializar semilla aleatoria una sola vez (para recursos y posiciones de jugadores)
+    srand(time(NULL));
 
     init_game(&game);
     start_http_server();

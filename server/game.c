@@ -28,7 +28,7 @@ Room* create_room(GameData* game) {
     room->player_count = 0;
 
     // Generar posiciones aleatorias para los recursos críticos
-    srand(time(NULL));
+    // (srand() se llama una sola vez en main, no aqui)
     for (int i = 0; i < MAX_RESOURCES; i++) {
         room->resources[i].id = i + 1;
         room->resources[i].x = rand() % MAP_SIZE;

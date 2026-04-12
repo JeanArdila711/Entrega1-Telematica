@@ -197,7 +197,7 @@ static void handle_http_client(int client_fd) {
             char page[HTTP_BUFFER];
             build_login_page(page, sizeof(page),
                 "<p class='error'>Usuario o contraseña incorrectos.</p>");
-            send_response(client_fd, 200, "OK", "text/html; charset=UTF-8", page);
+            send_response(client_fd, 401, "Unauthorized", "text/html; charset=UTF-8", page);
         } else {
             // Login OK → mostrar partidas
             char page[HTTP_BUFFER * 2];

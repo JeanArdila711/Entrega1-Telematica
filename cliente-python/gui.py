@@ -143,8 +143,15 @@ class GameGUI:
     def _update_map(self):
         self._draw_grid()
 
+        # Unir recursos conocidos: los que manda el servidor al defensor
+        # (self.client.resources) + los que el atacante descubre con SCAN
+        # (self.resource_positions)
+        recursos_a_dibujar = list(self.client.resources) + [
+            r for r in self.resource_positions if r not in self.client.resources
+        ]
+
         # Recursos en naranja con letra S (igual que Java)
-        for rx, ry in self.resource_positions:
+        for rx, ry in recursos_a_dibujar:
             x1 = rx * CELL_SIZE + 4
             y1 = ry * CELL_SIZE + 4
             x2 = x1 + CELL_SIZE - 8

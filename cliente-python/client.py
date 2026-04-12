@@ -1,7 +1,6 @@
 import socket
 import threading
 
-SERVER_HOST = 'localhost'
 SERVER_PORT = 8080
 BUFFER_SIZE = 1024
 
@@ -14,13 +13,28 @@ class GCPClient:
         self.x = 0
         self.y = 0
         self.room_id = None
+        # Posiciones de recursos criticos (solo las conoce el defensor)
+        self.resources = []
         # Función que se llama cada vez que llega un mensaje del servidor
         self.on_message = on_message_callback
 
-    def connect(self, host=SERVER_HOST, port=SERVER_PORT):
+    def connect(self, host, port=SERVER_PORT):
+        """Conecta al servidor resolviendo el hostname (sin IPs hardcodeadas)."""
+        # Resolución DNS explícita — si falla, se avisa pero no se cierra la app
         try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.connect((host, port))
+            results = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+            if not results:
+                print(f"Error: no se pudo resolver el hostname '{host}'")
+                return False
+            family, socktype, proto, canonname, sockaddr = results[0]
+            print(f"Hostname '{host}' resuelto a {sockaddr[0]}")
+        except socket.gaierror as e:
+            print(f"Error de resolución DNS para '{host}': {e}")
+            return False
+
+        try:
+            self.sock = socket.socket(family, socktype, proto)
+            self.sock.connect(sockaddr)
             self.connected = True
 
             # Hilo que escucha mensajes del servidor en segundo plano
@@ -70,6 +84,17 @@ class GCPClient:
                     self.y = int(coords[1])
                 if part.startswith('ROOM:'):
                     self.room_id = int(part.split(':')[1])
+                # Defensor recibe posiciones de recursos: RESOURCES:x1,y1;x2,y2
+                if part.startswith('RESOURCES:'):
+                    self.resources = []
+                    res_str = part.split(':', 1)[1]
+                    for pair in res_str.split(';'):
+                        xy = pair.split(',')
+                        if len(xy) == 2:
+                            try:
+                                self.resources.append((int(xy[0]), int(xy[1])))
+                            except ValueError:
+                                pass
 
         # Respuesta al MOVE — actualiza posición
         elif len(parts) >= 4 and parts[0] == '200' and 'MOVE_ACCEPTED' in parts:

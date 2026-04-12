@@ -139,3 +139,92 @@ python3 gui.py <IP-del-servidor> 8080
 ## Protocolo
 
 Ver la especificacion completa en [`protocolo/protocolo.md`](protocolo/protocolo.md).
+
+---
+
+## Despliegue en AWS
+
+El servidor se desplego en una instancia EC2 de AWS Educate. Estos son los pasos:
+
+### 1. Crear la instancia EC2
+
+- AMI: **Ubuntu Server 22.04 LTS**
+- Tipo: **t2.micro** (free tier)
+- Key pair: crear una nueva (`.pem`) y guardarla bien
+- Storage: 8 GB por defecto es suficiente
+
+### 2. Configurar Security Group
+
+Abrir los siguientes puertos **inbound** (entrada) desde `0.0.0.0/0`:
+
+| Puerto | Protocolo | Uso |
+|---|---|---|
+| 22 | TCP | SSH para administrar la instancia |
+| 8080 | TCP | Servidor de juego GCP |
+| 8081 | TCP | Servidor HTTP (interfaz web) |
+| 9090 | TCP | Servidor de identidad (auth) |
+
+### 3. Conectarse por SSH
+
+```bash
+chmod 400 mi-llave.pem
+ssh -i mi-llave.pem ubuntu@<DNS-publico-de-la-instancia>
+```
+
+### 4. Instalar dependencias
+
+```bash
+sudo apt update
+sudo apt install -y gcc make python3 git
+```
+
+### 5. Clonar el repo y compilar
+
+```bash
+git clone <url-del-repo>
+cd Entrega1-Telematica/server
+make
+```
+
+### 6. Arrancar los servicios
+
+En dos terminales SSH separadas (o usando `tmux` / `screen`):
+
+**Terminal 1 — servidor de identidad:**
+```bash
+cd ~/Entrega1-Telematica/auth-server
+python3 auth_server.py
+```
+
+**Terminal 2 — servidor de juego:**
+```bash
+cd ~/Entrega1-Telematica/server
+./server 8080 logs/server.log localhost
+```
+
+### 7. Probar desde un cliente local
+
+Desde tu maquina (no la EC2), obten el DNS publico de la instancia (por ejemplo
+`ec2-54-123-45-67.compute-1.amazonaws.com`) y conecta el cliente:
+
+```bash
+# Java
+java Client ec2-54-123-45-67.compute-1.amazonaws.com 8080
+
+# Python
+python3 gui.py ec2-54-123-45-67.compute-1.amazonaws.com 8080
+```
+
+La interfaz web queda en:
+
+```
+http://ec2-54-123-45-67.compute-1.amazonaws.com:8081
+```
+
+### Notas
+
+- El codigo no tiene IPs hardcodeadas: usa `getaddrinfo` (C) y `InetAddress.getByName` (Java)
+  para resolver el hostname de AWS dinamicamente.
+- Si la instancia se reinicia, el DNS publico cambia. Para un DNS fijo se puede asociar una
+  Elastic IP a la instancia.
+- Los logs quedan en `server/logs/server.log` dentro de la EC2.

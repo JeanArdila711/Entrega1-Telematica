@@ -1,4 +1,15 @@
 .claude/
+
+# Java
 *.class
+
+# Python
 __pycache__/
 *.pyc
+
+# C compilados
+*.o
+server/server
+
+# Logs
+server/logs/
