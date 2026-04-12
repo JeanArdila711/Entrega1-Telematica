@@ -312,14 +312,22 @@ public class Client extends JFrame {
                 final String mensaje = linea;
                 SwingUtilities.invokeLater(() -> procesarRespuesta(mensaje));
             }
+            // readLine() devolvio null: el servidor cerro la conexion limpiamente
+            SwingUtilities.invokeLater(() -> notificarDesconexion("El servidor cerro la conexion."));
         } catch (IOException e) {
-            SwingUtilities.invokeLater(() -> {
-                agregarLog("Conexion cerrada: " + e.getMessage());
-                labelStatus.setText("Desconectado");
-                labelStatus.setForeground(Color.RED);
-                habilitarBotones(false);
-            });
+            // Error de red: servidor caido abruptamente
+            SwingUtilities.invokeLater(() -> notificarDesconexion("Se perdio la conexion con el servidor:\n" + e.getMessage()));
         }
+    }
+
+    void notificarDesconexion(String motivo) {
+        agregarLog("DESCONECTADO: " + motivo);
+        labelStatus.setText("Desconectado");
+        labelStatus.setForeground(Color.RED);
+        habilitarBotones(false);
+        JOptionPane.showMessageDialog(this,
+            motivo + "\n\nPuedes revisar el log antes de cerrar.",
+            "Conexion perdida", JOptionPane.ERROR_MESSAGE);
     }
 
     // Interpreta cada mensaje que llega del servidor

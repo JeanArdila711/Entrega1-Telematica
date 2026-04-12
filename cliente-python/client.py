@@ -128,6 +128,27 @@ class GCPClient:
         """Solicita al servidor la lista de salas activas (respuesta asincrona)."""
         self.send_command("LIST")
 
+    def move(self, direction):
+        self.send_command(f"MOVE {direction}")
+
+    def scan(self):
+        self.send_command("SCAN")
+
+    def attack(self, resource_id):
+        self.send_command(f"ATTACK {resource_id}")
+
+    def defend(self, resource_id):
+        self.send_command(f"DEFEND {resource_id}")
+
+    def status(self):
+        self.send_command("STATUS")
+
+    def quit_game(self):
+        self.send_command("QUIT")
+        self.connected = False
+        if self.sock:
+            self.sock.close()
+
 
 def fetch_rooms(host, port, timeout=2.0):
     """
@@ -167,24 +188,3 @@ def fetch_rooms(host, port, timeout=2.0):
     except Exception as e:
         print(f"Error pidiendo LIST: {e}")
         return []
-
-    def move(self, direction):
-        self.send_command(f"MOVE {direction}")
-
-    def scan(self):
-        self.send_command("SCAN")
-
-    def attack(self, resource_id):
-        self.send_command(f"ATTACK {resource_id}")
-
-    def defend(self, resource_id):
-        self.send_command(f"DEFEND {resource_id}")
-
-    def status(self):
-        self.send_command("STATUS")
-
-    def quit_game(self):
-        self.send_command("QUIT")
-        self.connected = False
-        if self.sock:
-            self.sock.close()
