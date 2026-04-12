@@ -115,6 +115,22 @@ void log_message(const char* client_ip, int client_port, const char* type, const
     }
 }
 
+// Loggea notificaciones proactivas del servidor (NOTIFY ATTACK_STARTED,
+// RESOURCE_DOWN, GAME_OVER, etc.). Se llama desde game.c vía extern.
+void log_notify(int room_id, const char* message) {
+    time_t now = time(NULL);
+    struct tm* t = localtime(&now);
+    char timestamp[32];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", t);
+
+    printf("[%s] [ROOM:%d] NOTIFY: %s", timestamp, room_id, message);
+
+    if (log_file) {
+        fprintf(log_file, "[%s] [ROOM:%d] NOTIFY: %s", timestamp, room_id, message);
+        fflush(log_file);
+    }
+}
+
 // ── Parsing de comandos ──────────────────────────────
 void handle_client_message(Player* player, Room** room, const char* message,
                             char* response, const char* client_ip, int client_port) {

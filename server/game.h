@@ -80,6 +80,10 @@ typedef struct {
 // ── Declaración de server.c (usada en http_server.c) ─
 int query_auth_server(const char* username, const char* password, char* role_out);
 
+// Loggea una notificación proactiva del servidor (NOTIFY ...)
+// Implementada en server.c.
+void log_notify(int room_id, const char* message);
+
 // ── Funciones de game.c ──────────────────────────────
 
 void init_game(GameData* game);

@@ -104,6 +104,7 @@ void remove_player(Room* room, Player* player) {
 
 // Manda un mensaje a todos los jugadores de una sala excepto al que lo originó
 void notify_room(Room* room, Player* sender, const char* message) {
+    log_notify(room->id, message);
     for (int i = 0; i < room->player_count; i++) {
         Player* p = room->players[i];
         if (p != sender && p->active) {
@@ -114,6 +115,7 @@ void notify_room(Room* room, Player* sender, const char* message) {
 
 // Manda un mensaje a TODOS los jugadores de la sala (incluido el que lo originó)
 void notify_all(Room* room, const char* message) {
+    log_notify(room->id, message);
     for (int i = 0; i < room->player_count; i++) {
         Player* p = room->players[i];
         if (p && p->active) {
