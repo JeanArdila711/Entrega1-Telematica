@@ -31,6 +31,7 @@ Room* create_room(GameData* game) {
     room->id = game->room_count + 1;
     room->state = WAITING;
     room->player_count = 0;
+    room->successful_defenses = 0;
 
     // Generar posiciones aleatorias para los recursos críticos
     // (srand() se llama una sola vez en main, no aqui)
@@ -130,14 +131,10 @@ int check_attackers_win(Room* room) {
     return 1;
 }
 
-// Retorna 1 si ningún recurso está UNDER_ATTACK ni COMPROMISED,
-// es decir: todos los ataques fueron defendidos.
-// (Se comprueba tras una defensa exitosa, no al inicio.)
+// Retorna 1 si los defensores ya acumularon suficientes defensas exitosas.
+// El umbral está en DEFENDERS_WIN_THRESHOLD (game.h).
 int check_defenders_win(Room* room) {
-    for (int i = 0; i < MAX_RESOURCES; i++) {
-        if (room->resources[i].state != SAFE) return 0;
-    }
-    return 1;
+    return room->successful_defenses >= DEFENDERS_WIN_THRESHOLD;
 }
 
 // Procesa el comando MOVE
@@ -268,8 +265,10 @@ int process_defend(Player* player, Room* room, int resource_id, char* response) 
             room->resources[i].timer_token++;   // cualquier timer viejo queda inválido
             room->resources[i].state = SAFE;
             room->resources[i].attack_started_at = 0;
+            room->successful_defenses++;
             snprintf(response, BUFFER_SIZE,
-                     "200 OK DEFENSE_SUCCESS RESOURCE_ID:%d\n", resource_id);
+                     "200 OK DEFENSE_SUCCESS RESOURCE_ID:%d DEFENSES:%d/%d\n",
+                     resource_id, room->successful_defenses, DEFENDERS_WIN_THRESHOLD);
             return 0;
         }
     }

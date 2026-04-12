@@ -15,6 +15,11 @@
 // antes de que el recurso quede comprometido de forma permanente.
 #define ATTACK_TIMEOUT 30
 
+// Cantidad de defensas exitosas necesarias para que ganen los defensores.
+// Se fija en 2 porque hay 2 recursos: los defensores deben probar que
+// pueden contener ataques a ambos antes de declararse ganadores.
+#define DEFENDERS_WIN_THRESHOLD 2
+
 // Roles del jugador
 typedef enum {
     ATTACKER,
@@ -63,6 +68,7 @@ typedef struct {
     Player* players[MAX_PLAYERS];
     int player_count;
     Resource resources[MAX_RESOURCES];
+    int successful_defenses;   // defensas exitosas acumuladas
 } Room;
 
 // Estado global del juego
