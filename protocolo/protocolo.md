@@ -1,7 +1,6 @@
 # GCP - Game Communication Protocol
-
-**Version:** 1.0  
-**Fecha:** Marzo 2026  
+ 
+**Fecha:** Abril 2026  
 **Autores:** Jean Carlo Ardila Acevedo - Valentina Zapata Acosta
 
 ---
@@ -48,6 +47,7 @@ Estos son todos los mensajes que pueden intercambiarse entre cliente y servidor:
 
 | Comando | Direccion | Quien lo usa | Descripcion |
 |---|---|---|---|
+| `LIST` | Cliente -> Servidor | Ambos | Solicita la lista de partidas activas antes de unirse. |
 | `JOIN` | Cliente -> Servidor | Ambos | Solicita unirse a una partida activa o crear una nueva. |
 | `MOVE` | Cliente -> Servidor | Ambos | Mueve al jugador en una direccion dentro del plano. |
 | `SCAN` | Cliente -> Servidor | Solo ATTACKER | Explora la casilla actual buscando recursos criticos. |
@@ -66,6 +66,7 @@ Estos son todos los mensajes que pueden intercambiarse entre cliente y servidor:
 | `direccion` | Texto | 5 caracteres | UP, DOWN, LEFT, RIGHT |
 | `recurso_id` | Entero | 10 digitos | 1 o 2 (hay 2 recursos por sala) |
 | `codigo` | Entero | 3 digitos | 200, 201, 400, 403, 404, 409, 500 |
+| `timeout` | Entero | 10 digitos | Segundos disponibles para mitigar un ataque (valor fijo: 30) |
 
 ---
 
@@ -228,6 +229,7 @@ NOTIFY <tipo_evento> <datos>
 |---|---|---|
 | `ATTACK_STARTED` | A todos en la sala excepto al atacante | Cuando un atacante lanza ATTACK exitoso. |
 | `ATTACK_MITIGATED` | A todos en la sala excepto al defensor | Cuando un defensor ejecuta DEFEND exitoso. |
+| `RESOURCE_DOWN` | A todos en la sala | Cuando el temporizador de un ataque vence sin ser mitigado y el recurso queda COMPROMISED. |
 | `GAME_OVER` | A todos en la sala | Cuando la partida termina (ganan atacantes o defensores). |
 | `PLAYER_JOINED` | A todos en la sala excepto el que entro | Cuando un jugador hace JOIN exitoso. |
 | `PLAYER_LEFT` | A todos en la sala | Cuando un jugador hace QUIT o se desconecta. |
@@ -299,11 +301,15 @@ el servidor responde `409 CONFLICT GAME_NOT_RUNNING`.
 
 ### 4.3 Condiciones de victoria
 
-- **Ganan los ATTACKER:** todos los recursos criticos de la sala quedan en estado `under_attack = 1`
-  al mismo tiempo. El servidor envia `NOTIFY GAME_OVER RESULT:ATTACKERS_WIN` a todos.
+- **Ganan los ATTACKER:** todos los recursos criticos de la sala quedan en estado `COMPROMISED`
+  al mismo tiempo. Un recurso pasa a COMPROMISED cuando su temporizador de ataque (`TIMEOUT:30`
+  segundos) vence sin que ningun defensor ejecute DEFEND sobre el. El servidor envia
+  `NOTIFY GAME_OVER RESULT:ATTACKERS_WIN` a todos.
 
-- **Ganan los DEFENDER:** se mitiga un ataque y ninguno de los recursos queda bajo ataque.
-  El servidor envia `NOTIFY GAME_OVER RESULT:DEFENDERS_WIN` a todos.
+- **Ganan los DEFENDER:** se acumulan 2 defensas exitosas (una por cada recurso critico de la sala).
+  Cada vez que un defensor ejecuta DEFEND exitoso sobre un recurso bajo ataque, el contador
+  de defensas exitosas aumenta. Al llegar a 2, el servidor envia
+  `NOTIFY GAME_OVER RESULT:DEFENDERS_WIN` a todos.
 
 ### 4.4 Restricciones por rol
 

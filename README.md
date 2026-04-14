@@ -1,34 +1,45 @@
 # GCP - Game Communication Protocol
 
-Proyecto de Internet: Arquitectura y Protocolos — 2026-1  
+![C](https://img.shields.io/badge/c-%2300599C.svg?style=for-the-badge&logo=c&logoColor=white)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![Java](https://img.shields.io/badge/java-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white)
+![AWS deployed](https://img.shields.io/badge/AWS-Deployed-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)
+
+**Proyecto de Internet: Arquitectura y Protocolos — 2026-1**  
 **Autores:** Jean Carlo Ardila Acevedo - Valentina Zapata Acosta
 
 ---
 
-## Que es esto?
+## Acerca del Proyecto
 
-Un juego multijugador en red donde un jugador asume el rol de **Atacante** y otro de **Defensor**
-dentro de un simulador de centro de datos. El atacante explora un mapa buscando servidores criticos
-para atacarlos, y el defensor debe mitigarlos antes de que todos caigan.
+Un juego interactivo multijugador en red donde un jugador asume el rol de **Atacante** y otro de **Defensor** dentro de un simulador de centro de datos. 
 
-El sistema esta compuesto por tres componentes:
+El modelo de juego consiste en que el atacante explora un mapa buscando servidores críticos para vulnerarlos, mientras que el defensor es notificado y debe mitigar los ataques antes de que todos los servidores caigan.
 
-| Componente | Lenguaje | Puerto |
-|---|---|---|
-| Servidor de juego | C | 8080 |
-| Servidor HTTP (monitor) | C | 8081 |
-| Servidor de identidad | Python | 9090 |
-| Cliente | Java o Python | - |
+> **Nota de Despliegue:** El back-end de este proyecto (servidores de juego e identidad) se encuentra **completamente desplegado y operativo en una instancia de Amazon EC2 (AWS)**. Consulta la sección de [Despliegue en AWS](#-despliegue-en-aws) para más detalles.
 
 ---
 
-## Estructura del repositorio
+## Arquitectura del Sistema
 
-```
+El ecosistema de la aplicación adopta un modelo distribuido Cliente-Servidor compuesto por los siguientes componentes principales:
+
+| Componente | Lenguaje | Puerto | Propósito |
+|---|---|---|---|
+| **Servidor de Juego** | C | `8080` | Manejo de sockets, hilos y lógica core vía protocolo GCP. |
+| **Servidor HTTP (Monitor)** | C | `8081` | Servidor web embebido para monitoreo de partidas activas. |
+| **Servidor de Identidad** | Python | `9090` | Validación y gestión de usuarios/roles. |
+| **Clientes** | Java / Python | N/A | Interfaces gráficas (Swing/Tkinter) de interacción para los jugadores. |
+
+---
+
+## Estructura del Repositorio
+
+```text
 Entrega1-Telematica/
 ├── server/
 │   ├── server.c        # Servidor principal: sockets, hilos, protocolo GCP
-│   ├── game.c          # Logica del juego: mover, atacar, defender
+│   ├── game.c          # Lógica del juego: mover, atacar, defender
 │   ├── game.h          # Definiciones de estructuras y funciones
 │   ├── http_server.c   # Servidor HTTP: login web y monitor de partidas
 │   └── Makefile
@@ -36,195 +47,114 @@ Entrega1-Telematica/
 │   ├── auth_server.py  # Servidor de identidad
 │   └── users.txt       # Base de datos de usuarios (usuario:password:rol)
 ├── cliente-java/
-│   └── Client.java     # Cliente con interfaz grafica en Java Swing
+│   └── Client.java     # Cliente con interfaz gráfica en Java Swing
 ├── cliente-python/
-│   ├── gui.py          # Interfaz grafica en tkinter
-│   └── client.py       # Logica de conexion y protocolo
+│   ├── gui.py          # Interfaz gráfica en tkinter
+│   └── client.py       # Lógica de conexión y protocolo
 └── protocolo/
-    └── protocolo.md    # Especificacion completa del protocolo GCP
+    └── protocolo.md    # Especificación completa del protocolo GCP
 ```
 
 ---
 
-## Como ejecutar
+## Guía de Juego
 
-### Requisitos
+1. Conecta dos clientes independientes: uno ingresando con rol `ATTACKER` y otro como `DEFENDER`.
+2. La partida se iniciará automáticamente cuando haya al menos un responsable de cada rol dentro de la sala.
+3. El **ATTACKER** navega por el mapa empleando los controles de dirección y utiliza la acción `SCAN` para ubicar nodos críticos ocultos.
+4. Al encontrar un recurso vulnerable, el atacante despliega la acción `ATTACK`.
+5. El **DEFENDER** recibe alertas inmediatas del ataque en curso y debe apresurarse a utilizar el comando `DEFEND` sobre el nodo afectado.
+6. **Condiciones de Victoria:** El equipo defensor gana si logra mitigar y asegurar la totalidad de los ataques. El equipo atacante gana si consigue saturar y colocar bajo ataque todos los recursos críticos de forma simultánea.
 
-- Linux o WSL (para compilar el servidor en C)
-- `gcc` y `make`
-- `python3`
-- `java` y `javac`
+---
 
-### Paso 1 — Compilar el servidor
+## Cuentas de Prueba Disponibles
 
-```bash
-cd server/
-make
-```
+| Usuario | Contraseña | Rol |
+|---|---|---|
+| `alice` | `1234` | **ATTACKER** |
+| `bob` | `5678` | **DEFENDER** |
+| `carlos` | `abcd` | **ATTACKER** |
+| `diana` | `pass` | **DEFENDER** |
 
-### Paso 2 — Arrancar el servidor de identidad
+---
 
-En una terminal aparte:
+## Configuración y Ejecución Local
 
+Si deseas ejecutar o compilar el proyecto en modo local, sigue estos pasos:
+
+### 1. Requisitos Previos
+* Linux o Windows Subsystem for Linux (WSL)
+* Utilidades de compilación C: `gcc`, `make`
+* Motores de ejecución: `python3`, `java`, `javac`
+
+### 2. Puesta en Marcha (Servidores)
+
+Levanta primero el sistema de autenticación (Terminal 1):
 ```bash
 cd auth-server/
 python3 auth_server.py
 ```
 
-### Paso 3 — Arrancar el servidor de juego
-
-En otra terminal:
-
+Compila y lanza el motor del juego (Terminal 2):
 ```bash
 cd server/
+make
 mkdir -p logs
-./server 8080 logs/server.log
+./server 8080 logs/server.log   # Añade el hostname al final si auth-server se ejecuta remotamente
 ```
 
-Si el servidor de identidad esta en otra maquina:
+### 3. Conexión de Clientes
 
-```bash
-./server 8080 logs/server.log <hostname-del-auth-server>
-```
-
-### Paso 4 — Abrir la interfaz web
-
-En el navegador:
-
-```
-http://<IP-del-servidor>:8081
-```
-
-Ahi puedes hacer login y ver las partidas activas.
-
-### Paso 5 — Conectar un cliente
-
-**Java:**
+**Cliente Java:**
 ```bash
 cd cliente-java/
 javac Client.java
 java Client <IP-del-servidor> 8080
 ```
 
-**Python:**
+**Cliente Python:**
 ```bash
 cd cliente-python/
 python3 gui.py <IP-del-servidor> 8080
 ```
 
----
-
-## Usuarios de prueba
-
-| Usuario | Contrasena | Rol |
-|---|---|---|
-| alice | 1234 | ATTACKER |
-| bob | 5678 | DEFENDER |
-| carlos | abcd | ATTACKER |
-| diana | pass | DEFENDER |
-
----
-
-## Como se juega
-
-1. Conecta dos clientes: uno con un usuario ATTACKER y otro con un DEFENDER.
-2. La partida inicia automaticamente cuando hay al menos uno de cada rol en la misma sala.
-3. El **ATTACKER** se mueve por el mapa con las flechas y usa SCAN para detectar recursos criticos.
-4. Cuando encuentra un recurso, usa ATTACK para atacarlo.
-5. El **DEFENDER** recibe una notificacion de ataque y debe usar DEFEND para mitigarlo.
-6. Ganan los defensores si mitigan todos los ataques. Ganan los atacantes si todos los recursos quedan bajo ataque al mismo tiempo.
-
----
-
-## Protocolo
-
-Ver la especificacion completa en [`protocolo/protocolo.md`](protocolo/protocolo.md).
+**Monitor Interfaz Web:** Abre en tu navegador `http://<IP-del-servidor>:8081`
 
 ---
 
 ## Despliegue en AWS
 
-El servidor se desplego en una instancia EC2 de AWS Educate. Estos son los pasos:
+Actualmente el sistema está completamente desplegado para su acceso público sobre infraestructura **AWS Educate (EC2)**. 
 
-### 1. Crear la instancia EC2
+### Infraestructura AWS
+- **AMI:** Ubuntu Server 24.04 LTS
+- **Instancia:** `t2.micro`
+- **Security Groups (Inbound):** Puertos `22` (SSH), `8080` (GCP), `8081` (HTTP Monitor), `9090` (Auth).
 
-- AMI: **Ubuntu Server 22.04 LTS**
-- Tipo: **t2.micro** (free tier)
-- Key pair: crear una nueva (`.pem`) y guardarla bien
-- Storage: 8 GB por defecto es suficiente
+### Conexión como Cliente a AWS
 
-### 2. Configurar Security Group
-
-Abrir los siguientes puertos **inbound** (entrada) desde `0.0.0.0/0`:
-
-| Puerto | Protocolo | Uso |
-|---|---|---|
-| 22 | TCP | SSH para administrar la instancia |
-| 8080 | TCP | Servidor de juego GCP |
-| 8081 | TCP | Servidor HTTP (interfaz web) |
-| 9090 | TCP | Servidor de identidad (auth) |
-
-### 3. Conectarse por SSH
+Desde una máquina local (sin necesidad de configurar servidores de desarrollo), se debe utilizar el DNS público dinámico proveído por la instancia EC2 `(ej. ec2-n-n-n...amazonaws.com)` a través del servicio DNS incorporado en el proyecto. 
 
 ```bash
-chmod 400 mi-llave.pem
-ssh -i mi-llave.pem ubuntu@<DNS-publico-de-la-instancia>
+# Ejemplo en Java:
+java Client <DNS-publico-de-la-instancia> 8080
+
+# Ejemplo en Python:
+python3 gui.py <DNS-publico-de-la-instancia> 8080
 ```
+*(Puedes ingresar al panel web administrativo empleando dicho DNS apuntando al puerto `8081` en el navegador: `http://<DNS-publico-de-la-instancia>:8081`)*
 
-### 4. Instalar dependencias
+### Configuración para el Administrador
+Si se requiere provisionar de cero el ambiente de AWS:
 
-```bash
-sudo apt update
-sudo apt install -y gcc make python3 git
-```
+1. Ingresar vía SSH: `ssh -i mi-llave.pem ubuntu@<DNS-publico-de-la-instancia>`
+2. Instalar el stack de dependencias (`sudo apt update && sudo apt install -y gcc make python3 git`).
+3. Clonar el repositorio y efectuar `make` en el directorio `Entrega1-Telematica/server`.
+4. Iniciar mediante background jobs (`tmux`/`screen`) tanto el módulo de `auth_server.py` como `./server 8080 logs/server.log localhost` apuntando correctamente los puertos localmente.
 
-### 5. Clonar el repo y compilar
+---
 
-```bash
-git clone <url-del-repo>
-cd Entrega1-Telematica/server
-make
-```
+## Documentación del Protocolo
 
-### 6. Arrancar los servicios
-
-En dos terminales SSH separadas (o usando `tmux` / `screen`):
-
-**Terminal 1 — servidor de identidad:**
-```bash
-cd ~/Entrega1-Telematica/auth-server
-python3 auth_server.py
-```
-
-**Terminal 2 — servidor de juego:**
-```bash
-cd ~/Entrega1-Telematica/server
-./server 8080 logs/server.log localhost
-```
-
-### 7. Probar desde un cliente local
-
-Desde tu maquina (no la EC2), obten el DNS publico de la instancia (por ejemplo
-`ec2-54-123-45-67.compute-1.amazonaws.com`) y conecta el cliente:
-
-```bash
-# Java
-java Client ec2-54-123-45-67.compute-1.amazonaws.com 8080
-
-# Python
-python3 gui.py ec2-54-123-45-67.compute-1.amazonaws.com 8080
-```
-
-La interfaz web queda en:
-
-```
-http://ec2-54-123-45-67.compute-1.amazonaws.com:8081
-```
-
-### Notas
-
-- El codigo no tiene IPs hardcodeadas: usa `getaddrinfo` (C) y `InetAddress.getByName` (Java)
-  para resolver el hostname de AWS dinamicamente.
-- Si la instancia se reinicia, el DNS publico cambia. Para un DNS fijo se puede asociar una
-  Elastic IP a la instancia.
-- Los logs quedan en `server/logs/server.log` dentro de la EC2.
+Para visualizar el detalle de la mensajería interna, estados y payloads que rigen este servicio, dirígete a la especificación formal del modelo en: [`protocolo/protocolo.md`](protocolo/protocolo.md).
