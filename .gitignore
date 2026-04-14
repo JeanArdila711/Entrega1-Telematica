@@ -11,5 +11,4 @@ __pycache__/
 *.o
 server/server
 
-# Logs
-server/logs/
+
